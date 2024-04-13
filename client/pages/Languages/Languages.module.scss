@@ -1,0 +1,29 @@
+.language {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 10px;
+    justify-content: center;
+    text-align: center;
+}
+
+.language h1 {
+    text-align: center;
+}
+
+.languages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    text-align: center;
+    margin-top: 100px;
+}
+
+.languages > div{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
