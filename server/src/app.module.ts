@@ -9,6 +9,7 @@ import { CollectionsModule } from './collections/collections.module';
 import { FilesModule } from './files/files.module';
 import { CastModule } from './cast/cast.module';
 import { CrewModule } from './crew/crew.module';
+import { Neo4JModule } from './neo4-j/neo4-j.module';
 import * as dotenv from 'dotenv'
 
 dotenv.config()
@@ -22,7 +23,8 @@ dotenv.config()
     CollectionsModule,
     FilesModule,
     CastModule,
-    CrewModule],
+    CrewModule,
+    Neo4JModule,],
   controllers: [AppController],
   providers: [AppService],
 })
