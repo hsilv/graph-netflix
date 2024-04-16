@@ -10,6 +10,7 @@ import { FilesModule } from './files/files.module';
 import { CastModule } from './cast/cast.module';
 import { CrewModule } from './crew/crew.module';
 import { Neo4JModule } from './neo4-j/neo4-j.module';
+import { AuthModule } from './auth/auth.module';
 import * as dotenv from 'dotenv'
 
 dotenv.config()
@@ -24,7 +25,8 @@ dotenv.config()
     FilesModule,
     CastModule,
     CrewModule,
-    Neo4JModule,],
+    Neo4JModule,
+    AuthModule,],
   controllers: [AppController],
   providers: [AppService],
 })

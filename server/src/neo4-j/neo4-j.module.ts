@@ -16,6 +16,6 @@ dotenv.config()
       useValue: neo4j.driver(process.env.NEO4J_URL, neo4j.auth.basic(process.env.NEO4J_USER, process.env.NEO4J_PASSWORD)),
     },
   ],
-  exports: ['NEO4J_DRIVER'],
+  exports: [Neo4JService, 'NEO4J_DRIVER'],
 })
 export class Neo4JModule { }
