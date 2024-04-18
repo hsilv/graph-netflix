@@ -45,11 +45,12 @@ export class MoviesService {
   async createMovie(createMovieDto: CreateMovieDto) {
     const { id, title, adult, runtime, vote_average, vote_count, popularity, release_date, overview, genres, original_language, spoken_languages, production_countries, production_companies, budget, revenue } = createMovieDto;
 
-    // Crea la película
+    const releaseDate = new Date(release_date);
+
     await this.neo4jService.runQuery(
       `
       MERGE (m:Movie {id: $id})
-      ON CREATE SET m.title = $title, m.adult = $adult, m.runtime = $runtime, m.vote_avg = $vote_avg, m.vote_count = $vote_count, m.popularity = $popularity, m.release_date = $release_date, m.overview = $overview, m.genres = $genres
+      ON CREATE SET m.title = $title, m.adult = $adult, m.runtime = $runtime, m.vote_avg = $vote_avg, m.vote_count = $vote_count, m.popularity = $popularity, m.release_date = datetime($release_date), m.overview = $overview, m.genres = $genres
       RETURN m
       `,
       {
@@ -60,13 +61,12 @@ export class MoviesService {
         vote_avg: vote_average,
         vote_count,
         popularity,
-        release_date,
+        release_date: releaseDate.toISOString(),
         overview,
         genres: genres.map(genre => genre.name),
       },
     );
 
-    // Crea o encuentra el nodo del idioma original
     await this.neo4jService.runQuery(
       `
       MERGE (l:Language {iso_639_1: $iso_639_1})
@@ -75,7 +75,6 @@ export class MoviesService {
       { iso_639_1: original_language },
     );
 
-    // Crea la relación entre la película y el idioma original
     await this.neo4jService.runQuery(
       `
       MATCH (m:Movie {id: $id}), (l:Language {iso_639_1: $iso_639_1})
@@ -84,7 +83,6 @@ export class MoviesService {
       { id, iso_639_1: original_language },
     );
 
-    // Crea o encuentra los nodos de los idiomas hablados y crea las relaciones correspondientes
     for (const lang of spoken_languages) {
       await this.neo4jService.runQuery(
         `
@@ -115,7 +113,6 @@ export class MoviesService {
       );
     }
 
-    // Crea o encuentra los nodos de los países de producción y crea las relaciones correspondientes
     for (const country of production_countries) {
       await this.neo4jService.runQuery(
         `
@@ -136,7 +133,6 @@ export class MoviesService {
       );
     }
 
-    // Devuelve el nodo de la película
     const result = await this.neo4jService.runQuery(
       `
       MATCH (m:Movie {id: $id})
@@ -146,6 +142,267 @@ export class MoviesService {
     );
     console.log(result.map((record) => record.get('m').properties))
     return result.map((record) => record.get('m').properties);
+  }
+
+  async changeDate() {
+    await this.neo4jService.runQuery(
+      `
+        MATCH (m:Movie)
+        WHERE m.release_date IS NOT NULL AND NOT m.release_date = 'NaN'
+        WITH m, apoc.date.parse(m.release_date, 'ms', 'yyyy-MM-dd') AS parsedDate
+        WHERE parsedDate IS NOT NULL
+        SET m.release_date = datetime({epochMillis: parsedDate})
+        `,
+    );
+  }
+
+  async getMovie(id: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})
+      RETURN m
+      `,
+      { id },
+    );
+    return result.map((record) => record.get('m').properties);
+  }
+
+  async updateMovie(id: string, updateMovieDto: UpdateMovieDto) {
+    const { title, adult, runtime, vote_average, vote_count, popularity, release_date, overview, genres, original_language, spoken_languages, production_countries, production_companies, budget, revenue } = updateMovieDto;
+
+    const releaseDate = release_date ? new Date(release_date).toISOString() : null;
+
+    const propertiesToUpdate = {
+      title,
+      adult,
+      runtime,
+      vote_avg: vote_average,
+      vote_count,
+      popularity,
+      release_date: releaseDate,
+      overview,
+      genres: genres ? genres.map(genre => genre.name) : null,
+    };
+
+    const setQuery = Object.entries(propertiesToUpdate)
+      .filter(([key, value]) => value !== null && value !== undefined)
+      .map(([key, value]) => `m.${key} = $${key}`)
+      .join(', ');
+
+    const result = await this.neo4jService.runQuery(
+      `
+        MATCH (m:Movie {id: $id})
+        SET ${setQuery}
+        RETURN m
+        `,
+      {
+        id,
+        ...propertiesToUpdate,
+      },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async updateMultipleMovies(ids: string[], updateMovieDto: UpdateMovieDto) {
+    const { title, adult, runtime, vote_average, vote_count, popularity, release_date, overview, genres, original_language, spoken_languages, production_countries, production_companies, budget, revenue } = updateMovieDto;
+
+    const releaseDate = release_date ? new Date(release_date).toISOString() : null;
+
+    const propertiesToUpdate = {
+      title,
+      adult,
+      runtime,
+      vote_avg: vote_average,
+      vote_count,
+      popularity,
+      release_date: releaseDate,
+      overview,
+      genres: genres ? genres.map(genre => genre.name) : null,
+    };
+
+    const setQuery = Object.entries(propertiesToUpdate)
+      .filter(([key, value]) => value !== null && value !== undefined)
+      .map(([key, value]) => `m.${key} = $${key}`)
+      .join(', ');
+
+    const result = await this.neo4jService.runQuery(
+      `
+        UNWIND $ids AS id
+        MATCH (m:Movie {id: id})
+        SET ${setQuery}
+        RETURN m
+        `,
+      {
+        ids,
+        ...propertiesToUpdate,
+      },
+    );
+    console.log(result)
+    return result.map(record => { console.log(record.get('m')); return record.get('m').properties });
+  }
+
+  async addPropertyToMovie(id: string, property: string, value: any) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})
+      SET m.${property} = $value
+      RETURN m
+      `,
+      { id, value },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async addPropertyToMultipleMovies(ids: string[], property: string, value: any) {
+    const result = await this.neo4jService.runQuery(
+      `
+      UNWIND $ids AS id
+      MATCH (m:Movie {id: id})
+      SET m.${property} = $value
+      RETURN m
+      `,
+      { ids, value },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
+  async removePropertyFromMovie(id: string, property: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})
+      REMOVE m.${property}
+      RETURN m
+      `,
+      { id },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async removePropertyFromMultipleMovies(ids: string[], property: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      UNWIND $ids AS id
+      MATCH (m:Movie {id: id})
+      REMOVE m.${property}
+      RETURN m
+      `,
+      { ids },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
+  async addLanguageToMovie(id: string, language: string) {
+    await this.neo4jService.runQuery(
+      `
+      MERGE (l:Language {name: $language})
+      RETURN l
+      `,
+      { language },
+    );
+
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id}), (l:Language {name: $language})
+      MERGE (m)-[r:ES_HABLADO_EN {principal: false, doblado: true, variantes: []}]->(l)
+      RETURN m
+      `,
+      { id, language },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async addPropertyToLanguageRelationship(id: string, language: string, property: string, value: any) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      SET r.${property} = $value
+      RETURN m
+      `,
+      { id, language, value },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async addPropertyToAllLanguagesRelationships(language: string, property: string, value: any) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie)-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      SET r.${property} = $value
+      RETURN m
+      `,
+      { language, value },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
+  async addLanguageToMultipleMovies(ids: string[], language: string) {
+    await this.neo4jService.runQuery(
+      `
+      MERGE (l:Language {name: $language})
+      RETURN l
+      `,
+      { language },
+    );
+
+    const result = await this.neo4jService.runQuery(
+      `
+      UNWIND $ids AS id
+      MATCH (m:Movie {id: id}), (l:Language {name: $language})
+      MERGE (m)-[r:ES_HABLADO_EN {principal: false, doblado: true, variantes: []}]->(l)
+      RETURN m
+      `,
+      { ids, language },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
+  async removeLanguageFromMovie(id: string, language: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      DELETE r
+      RETURN m
+      `,
+      { id, language },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async removeLanguageFromMultipleMovies(ids: string[], language: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      UNWIND $ids AS id
+      MATCH (m:Movie {id: id})-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      DELETE r
+      RETURN m
+      `,
+      { ids, language },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
+  async deleteMovie(id: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})
+      DETACH DELETE m
+      RETURN m
+      `,
+      { id },);
+    return { ok: true };
+  }
+
+  async deleteMultipleMovies(ids: string[]) {
+    const result = await this.neo4jService.runQuery(
+      `
+      UNWIND $ids AS id
+      MATCH (m:Movie {id: id})
+      DETACH DELETE m
+      RETURN m
+      `,
+      { ids },
+    );
+    return { ok: true };
   }
 
   /* quantity: number = 0;

@@ -3,7 +3,7 @@ import { MoviesService } from './movies.service';
 import { CreateMovieDto, ProjectionDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { ErrorDto } from './dto/error.dto';
-import { ApiTags, ApiCreatedResponse, ApiBadRequestResponse, ApiResponse, ApiNotFoundResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiCreatedResponse, ApiBadRequestResponse, ApiResponse, ApiNotFoundResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('movies')
 @Controller('movies')
@@ -13,6 +13,11 @@ export class MoviesController {
   @Get()
   async findAll() {
     return await this.moviesService.getMovies();
+  }
+
+  @Get('/:id')
+  async findMovie(@Query('id') id: string) {
+    return await this.moviesService.getMovie(id);
   }
 
 
@@ -35,6 +40,45 @@ export class MoviesController {
   async create(@Body() createMovieDto: CreateMovieDto) {
     return await this.moviesService.createMovie(createMovieDto);
   }
+
+  @Patch('/property/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'] } } })
+  async addPropertyToMultiple(@Body('ids') ids: string[], @Query('property') property: string, @Query('value') value: string) {
+    return await this.moviesService.addPropertyToMultipleMovies(ids, property, value);
+  }
+
+  @Patch('/property/:id')
+  async addProperty(@Param('id') id: string, @Query('property') property: string, @Query('value') value: string) {
+    return await this.moviesService.addPropertyToMovie(id, property, value);
+  }
+
+  @Delete('/property/:id')
+  async removeProperty(@Param('id') id: string, @Query('property') property: string) {
+    return await this.moviesService.removePropertyFromMovie(id, property);
+  }
+
+  @Delete('/property/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'] } } })
+  async removePropertyFromMultiple(@Body('ids') ids: string[], @Query('property') property: string) {
+    return await this.moviesService.removePropertyFromMultipleMovies(ids, property);
+  }
+
+  @Patch('/multiple')
+  async updateMultiple(@Body('ids') ids: string[], @Body() updateMovieDto: UpdateMovieDto) {
+    return this.moviesService.updateMultipleMovies(ids, updateMovieDto);
+  }
+
+  @Patch('/:id')
+  async update(@Param('id') id: string, @Body() updateMovieDto: UpdateMovieDto) {
+    return await this.moviesService.updateMovie(id, updateMovieDto);
+  }
+
+  @Delete('/:id')
+  async remove(@Param('id') id: string) {
+    return await this.moviesService.deleteMovie(id);
+  }
+
+
 
 
   /* @Post('/new')
