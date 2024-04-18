@@ -11,6 +11,7 @@ import { CastModule } from './cast/cast.module';
 import { CrewModule } from './crew/crew.module';
 import { Neo4JModule } from './neo4-j/neo4-j.module';
 import { AuthModule } from './auth/auth.module';
+import { PersonModule } from './person/person.module';
 import * as dotenv from 'dotenv'
 
 dotenv.config()
@@ -26,7 +27,8 @@ dotenv.config()
     CastModule,
     CrewModule,
     Neo4JModule,
-    AuthModule,],
+    AuthModule,
+    PersonModule,],
   controllers: [AppController],
   providers: [AppService],
 })
