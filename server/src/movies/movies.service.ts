@@ -335,6 +335,30 @@ export class MoviesService {
     return result.map(record => record.get('m').properties);
   }
 
+  async removePropertyFromLanguageRelationship(id: string, language: string, property: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      REMOVE r.${property}
+      RETURN m
+      `,
+      { id, language },
+    );
+    return result[0].get('m').properties;
+  }
+
+  async removePropertyFromAllLanguagesRelationships(language: string, property: string) {
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie)-[r:ES_HABLADO_EN]->(l:Language {name: $language})
+      REMOVE r.${property}
+      RETURN m
+      `,
+      { language },
+    );
+    return result.map(record => record.get('m').properties);
+  }
+
   async addLanguageToMultipleMovies(ids: string[], language: string) {
     await this.neo4jService.runQuery(
       `

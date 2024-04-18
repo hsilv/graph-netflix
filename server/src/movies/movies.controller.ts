@@ -41,6 +41,49 @@ export class MoviesController {
     return await this.moviesService.createMovie(createMovieDto);
   }
 
+  @Patch('/add/language/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'], language: 'Spanish' } } })
+  async addLanguageToMultiple(@Body('ids') ids: string[], @Query('language') language: string) {
+    return await this.moviesService.addLanguageToMultipleMovies(ids, language);
+  }
+
+  @Patch('/add/language/:id')
+  async addLanguage(@Param('id') id: string, @Query('language') language: string) {
+    return await this.moviesService.addLanguageToMovie(id, language);
+  }
+
+
+  @Delete('/remove/language/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'], language: 'Spanish' } } })
+  async removeLanguageFromMultiple(@Body('ids') ids: string[], @Query('language') language: string) {
+    return await this.moviesService.removeLanguageFromMultipleMovies(ids, language);
+  }
+
+  @Delete('/remove/language/:id')
+  async removeLanguage(@Param('id') id: string, @Query('language') language: string) {
+    return await this.moviesService.removeLanguageFromMovie(id, language);
+  }
+
+  @Patch('/language/add/property')
+  async addPropertyToMultipleLanguages(@Query('language') language: string, @Query('property') property: string, @Query('value') value: string) {
+    return await this.moviesService.addPropertyToAllLanguagesRelationships(language, property, value);
+  }
+
+  @Patch('/language/add/property/:id')
+  async addPropertyToLanguageRelationship(@Param('id') id: string, @Query('language') language: string, @Query('property') property: string, @Query('value') value: string) {
+    return await this.moviesService.addPropertyToLanguageRelationship(id, language, property, value);
+  }
+
+  @Delete('/language/remove/property')
+  async removePropertyFromMultipleLanguages(@Query('language') language: string, @Query('property') property: string) {
+    return await this.moviesService.removePropertyFromAllLanguagesRelationships(language, property);
+  }
+
+  @Delete('/language/remove/property/:id')
+  async removePropertyFromLanguageRelationship(@Param('id') id: string, @Query('language') language: string, @Query('property') property: string) {
+    return await this.moviesService.removePropertyFromLanguageRelationship(id, language, property);
+  }
+
   @Patch('/property/multiple')
   @ApiBody({ schema: { example: { ids: ['123', '456'] } } })
   async addPropertyToMultiple(@Body('ids') ids: string[], @Query('property') property: string, @Query('value') value: string) {
@@ -52,16 +95,28 @@ export class MoviesController {
     return await this.moviesService.addPropertyToMovie(id, property, value);
   }
 
-  @Delete('/property/:id')
-  async removeProperty(@Param('id') id: string, @Query('property') property: string) {
-    return await this.moviesService.removePropertyFromMovie(id, property);
-  }
-
   @Delete('/property/multiple')
   @ApiBody({ schema: { example: { ids: ['123', '456'] } } })
   async removePropertyFromMultiple(@Body('ids') ids: string[], @Query('property') property: string) {
     return await this.moviesService.removePropertyFromMultipleMovies(ids, property);
   }
+
+  @Delete('/language/movie/:id')
+  async removeLanguageFromMovie(@Param('id') id: string, @Query('language') language: string) {
+    return await this.moviesService.removeLanguageFromMovie(id, language);
+  }
+
+  @Delete('/langauge/movie/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'], language: 'Spanish' } } })
+  async removeLanguageFromMultipleMovies(@Body('ids') ids: string[], @Query('language') language: string) {
+    return await this.moviesService.removeLanguageFromMultipleMovies(ids, language);
+  }
+
+  @Delete('/property/:id')
+  async removeProperty(@Param('id') id: string, @Query('property') property: string) {
+    return await this.moviesService.removePropertyFromMovie(id, property);
+  }
+
 
   @Patch('/multiple')
   async updateMultiple(@Body('ids') ids: string[], @Body() updateMovieDto: UpdateMovieDto) {
@@ -71,6 +126,12 @@ export class MoviesController {
   @Patch('/:id')
   async update(@Param('id') id: string, @Body() updateMovieDto: UpdateMovieDto) {
     return await this.moviesService.updateMovie(id, updateMovieDto);
+  }
+
+  @Delete('/multiple')
+  @ApiBody({ schema: { example: { ids: ['123', '456'] } } })
+  async removeMultiple(@Body('ids') ids: string[]) {
+    return await this.moviesService.deleteMultipleMovies(ids);
   }
 
   @Delete('/:id')
