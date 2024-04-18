@@ -1,10 +1,11 @@
+from py2neo import Graph, Node, Relationship
 import pandas as pd
 import pymongo
 import json
 import requests
 
 # Leer el archivo CSV
-df = pd.read_csv('credits.csv')
+df = pd.read_csv('credits.csv', nrows=1000)
 
 df['id'] = df['id'].astype(str)
 
@@ -28,36 +29,40 @@ def clean_json_array(x):
 df['cast'] = df['cast'].apply(clean_json_array)
 df['crew'] = df['crew'].apply(clean_json_array)
 
-# Crear una conexión a MongoDB
-client = pymongo.MongoClient("mongodb+srv://silva:$eB30937484@cluster0.u0mksjj.mongodb.net/?retryWrites=true&w=majority")
+graph = Graph("neo4j+s://neo4j:90DBfS6nPuYXytMmeNNjXDUmuIf9vi1PGxYOB8sczgY@217245d3.databases.neo4j.io")
 
-# Definir el tamaño de la página
-page_size = 100
+for index, row in df.iterrows():
+    print(row)
+    # Crea el nodo de la película
+    movie = Node("Movie", id=row['id'])
+    graph.merge(movie, "Movie", "id")
 
-# Calcular el número total de páginas
-total_pages = len(df) // page_size
-if len(df) % page_size > 0:
-    total_pages += 1
+    # Busca el nodo de la película y obtén sus propiedades
+    movie_node = graph.run("MATCH (m:Movie {id: $id}) RETURN m", id=row['id']).evaluate()
+    runtime = movie_node['runtime']
+    release_date = movie_node['release_date']
 
-if 'poster_path' not in df.columns:
-    df['poster_path'] = None
+    # Busca el nodo de lenguaje y obtén su propiedad iso_639_1
+    language_node = graph.run("MATCH (m:Movie {id: $id})-[:ES_HABLADO_EN {principal: true}]->(l:Language) RETURN l", id=row['id']).evaluate()
+    iso_639_1 = language_node['iso_639_1']
 
-# Especificar la base de datos y la colección
-db = client["project"]
-collection = db["cast_crew"]
+    # Crea los nodos de Actor y las relaciones PARTICIPA_EN y HABLA
+    for cast_member in row['cast']:
+        actor = Node("Actor", name=cast_member['name'], gender=cast_member['gender'])
+        graph.merge(actor, "Actor", "name")
 
-# Iterar sobre cada página
-for page in range(114, total_pages + 1):
-    # Seleccionar las filas para esta página
-    start = page * page_size
-    end = start + page_size
-    df_page = df[start:end]
+        participates_in = Relationship(actor, "PARTICIPA_EN", movie, role=cast_member['character'], runtime=runtime, release_date=release_date)
+        graph.create(participates_in)
 
-    # Convertir el DataFrame a un formato de diccionario
-    data_dict = df_page.to_dict("records")
-
-    # Insertar los datos en MongoDB
-    collection.insert_many(data_dict)
-
-    print(f"Inserted page {page+1} of {total_pages}")
+        speaks = Relationship(actor, "HABLA", language_node)
+        graph.create(speaks)
     
+    for cast_member in row['crew']:
+        actor = Node("Actor", name=cast_member['name'], gender=cast_member['gender'])
+        graph.merge(actor, "Actor", "name")
+
+        participates_in = Relationship(actor, "PARTICIPA_EN", movie, role=cast_member['job'], runtime=runtime, release_date=release_date)
+        graph.create(participates_in)
+
+        speaks = Relationship(actor, "HABLA", language_node)
+        graph.create(speaks)

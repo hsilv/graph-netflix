@@ -10,7 +10,34 @@ import { ApiTags, ApiCreatedResponse, ApiBadRequestResponse, ApiResponse, ApiNot
 export class MoviesController {
   constructor(private readonly moviesService: MoviesService) { }
 
-  @Post('/new')
+  @Get()
+  async findAll() {
+    return await this.moviesService.getMovies();
+  }
+
+
+  @Get('/genre')
+  async findByGenre(@Query('name') name: string) {
+    return await this.moviesService.getMoviesByGenre(name);
+  }
+
+  @Get('/language')
+  async findByLanguage(@Query('name') name: string) {
+    return await this.moviesService.getMoviesByLanguage(name);
+  }
+
+  @Get('/all/genres')
+  async getAllGenres() {
+    return this.moviesService.getGenres();
+  }
+
+  @Post()
+  async create(@Body() createMovieDto: CreateMovieDto) {
+    return await this.moviesService.createMovie(createMovieDto);
+  }
+
+
+  /* @Post('/new')
   @ApiCreatedResponse({
     description: 'The movie has been successfully created.',
     type: CreateMovieDto,
@@ -251,7 +278,7 @@ export class MoviesController {
       throw new NotFoundException('The movie that you are trying to delete does not exist.');
     }
     return movie;
-  }
+  } */
 
 
 }

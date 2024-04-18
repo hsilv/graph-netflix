@@ -64,7 +64,7 @@ graph = Graph("neo4j+s://neo4j:90DBfS6nPuYXytMmeNNjXDUmuIf9vi1PGxYOB8sczgY@21724
 
 for index, row in df.iterrows():
     # Crea el nodo de la película
-    movie = Node("Movie", id=row['id'], title=row['title'])
+    movie = Node("Movie", id=row['id'], title=row['title'], adult=row['adult'], runtime=row['runtime'], vote_avg=row['vote_average'], vote_count=row['vote_count'], popularity=row['popularity'], release_date=row['release_date'], overview=row['overview'], genres=[genre['name'] for genre in row['genres']])
     graph.merge(movie, "Movie", "id")
 
     # Crea o encuentra el nodo del idioma original
@@ -74,6 +74,24 @@ for index, row in df.iterrows():
     # Crea la relación entre la película y el idioma original
     rel = Relationship(movie, "ES_HABLADO_EN", original_language, principal=True, doblado=False, variantes=[])
     graph.merge(rel)
+    
+    if pd.notnull(row['belongs_to_collection']):
+        id = None
+        name = None
+        if 'id' in row['belongs_to_collection']:
+            id = row['belongs_to_collection']['id']
+        
+        if 'name' in row['belongs_to_collection']:
+            name = row['belongs_to_collection']['name']
+            
+        
+        if id is not None and name is not None:
+            collection = Node("Collection", id=id, name=name)
+            graph.merge(collection, "Collection", "id")
+
+            # Crea la relación entre la película y la colección
+            rel = Relationship(movie, "BELONGS_TO_COLLECTION", collection)
+            graph.merge(rel)
 
     # Crea o encuentra los nodos de los idiomas hablados y crea las relaciones correspondientes
     for lang in row['spoken_languages']:
@@ -89,3 +107,19 @@ for index, row in df.iterrows():
         # Crea la relación entre la película y el idioma hablado
         rel = Relationship(movie, "ES_HABLADO_EN", spoken_language, **props)
         graph.merge(rel)
+    # Crea o encuentra los nodos de los países de producción y crea las relaciones correspondientes
+    for country in row['production_countries']:
+        production_country = Node("Country", iso_3166_1=country['iso_3166_1'], name=country['name'])
+        graph.merge(production_country, "Country", "iso_3166_1")
+
+        # Crea la relación entre la película y el país de producción
+        rel = Relationship(movie, "SE_PRODUJO_EN", production_country)
+        company_names = [company['name'] for company in row['production_companies']]
+
+        # Asigna los nombres de las compañías a la propiedad 'productoras' de la relación
+        rel['productoras'] = company_names
+        rel['budget'] = row['budget']
+        rel['revenue'] = row['revenue']
+        graph.merge(rel)
+    
+    print(f"Inserted movie {row['title']}")

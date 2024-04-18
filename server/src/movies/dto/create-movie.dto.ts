@@ -114,8 +114,7 @@ export class CreateMovieDto {
     @IsString()
     readonly imdb_id: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
+    @ApiProperty()
     @IsString()
     readonly original_language: string;
 
@@ -157,6 +156,7 @@ export class CreateMovieDto {
     @IsString()
     readonly release_date: string;
 
+    @ApiPropertyOptional()
     @IsOptional()
     @IsInt()
     readonly revenue: number;

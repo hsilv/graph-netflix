@@ -5,10 +5,150 @@ import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { Movie, MovieProjection } from 'schema/movie.schema';
 import { Types } from 'mongoose';
+import { Neo4JService } from 'src/neo4-j/neo4-j.service';
 
 @Injectable()
 export class MoviesService {
-  quantity: number = 0;
+  constructor(private readonly neo4jService: Neo4JService) { }
+
+  async getMovies() {
+    return await this.neo4jService.runQuery('MATCH (m:Movie) RETURN m LIMIT 25');
+  }
+
+  async getMoviesByGenre(genre: string) {
+    return await this.neo4jService.runQuery(
+      `MATCH (m:Movie) WHERE $genre IN m.genres RETURN m LIMIT 25`,
+      { genre },
+    );
+  }
+
+  async getMoviesByLanguage(language: string) {
+    return await this.neo4jService.runQuery(
+      `MATCH (m:Movie)-[:ES_HABLADO_EN]->(l:Language) WHERE l.name = $language OR l.iso_639_1 = $language RETURN m LIMIT 25`,
+      { language },
+    );
+  }
+
+  async getMoviesByCollection(collection: string) {
+    return await this.neo4jService.runQuery(
+      `MATCH (m:Movie)-[:BELONGS_TO_COLLECTION]->(c:Collection) WHERE c.name = $collection OR c.id = $collection RETURN m LIMIT 25`,
+      { collection },
+    );
+  }
+
+  async getGenres() {
+    return await this.neo4jService.runQuery(
+      `MATCH (m:Movie) UNWIND m.genres AS genre RETURN DISTINCT genre`,
+    );
+  }
+
+  async createMovie(createMovieDto: CreateMovieDto) {
+    const { id, title, adult, runtime, vote_average, vote_count, popularity, release_date, overview, genres, original_language, spoken_languages, production_countries, production_companies, budget, revenue } = createMovieDto;
+
+    // Crea la película
+    await this.neo4jService.runQuery(
+      `
+      MERGE (m:Movie {id: $id})
+      ON CREATE SET m.title = $title, m.adult = $adult, m.runtime = $runtime, m.vote_avg = $vote_avg, m.vote_count = $vote_count, m.popularity = $popularity, m.release_date = $release_date, m.overview = $overview, m.genres = $genres
+      RETURN m
+      `,
+      {
+        id,
+        title,
+        adult,
+        runtime,
+        vote_avg: vote_average,
+        vote_count,
+        popularity,
+        release_date,
+        overview,
+        genres: genres.map(genre => genre.name),
+      },
+    );
+
+    // Crea o encuentra el nodo del idioma original
+    await this.neo4jService.runQuery(
+      `
+      MERGE (l:Language {iso_639_1: $iso_639_1})
+      RETURN l
+      `,
+      { iso_639_1: original_language },
+    );
+
+    // Crea la relación entre la película y el idioma original
+    await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id}), (l:Language {iso_639_1: $iso_639_1})
+      MERGE (m)-[r:ES_HABLADO_EN {principal: true, doblado: false, variantes: []}]->(l)
+      `,
+      { id, iso_639_1: original_language },
+    );
+
+    // Crea o encuentra los nodos de los idiomas hablados y crea las relaciones correspondientes
+    for (const lang of spoken_languages) {
+      await this.neo4jService.runQuery(
+        `
+        MERGE (l:Language {iso_639_1: $iso_639_1, name: $name})
+        RETURN l
+        `,
+        { iso_639_1: lang.iso_639_1, name: lang.name },
+      );
+
+      const props = { principal: false, doblado: true, variantes: [] };
+      if (lang.iso_639_1 === original_language) {
+        props.principal = true;
+        props.doblado = false;
+      }
+
+      await this.neo4jService.runQuery(
+        `
+        MATCH (m:Movie {id: $id}), (l:Language {iso_639_1: $iso_639_1})
+        MERGE (m)-[r:ES_HABLADO_EN {principal: $principal, doblado: $doblado, variantes: $variantes}]->(l)
+        `,
+        {
+          id,
+          iso_639_1: lang.iso_639_1,
+          principal: props.principal,
+          doblado: props.doblado,
+          variantes: props.variantes
+        },
+      );
+    }
+
+    // Crea o encuentra los nodos de los países de producción y crea las relaciones correspondientes
+    for (const country of production_countries) {
+      await this.neo4jService.runQuery(
+        `
+        MERGE (c:Country {iso_3166_1: $iso_3166_1, name: $name})
+        RETURN c
+        `,
+        { iso_3166_1: country.iso_3166_1, name: country.name },
+      );
+
+      const company_names = production_companies.map(company => company.name);
+
+      await this.neo4jService.runQuery(
+        `
+        MATCH (m:Movie {id: $id}), (c:Country {iso_3166_1: $iso_3166_1})
+        MERGE (m)-[r:SE_PRODUJO_EN {productoras: $productoras, budget: $budget, revenue: $revenue}]->(c)
+        `,
+        { id, iso_3166_1: country.iso_3166_1, productoras: company_names, budget, revenue },
+      );
+    }
+
+    // Devuelve el nodo de la película
+    const result = await this.neo4jService.runQuery(
+      `
+      MATCH (m:Movie {id: $id})
+      RETURN m
+      `,
+      { id },
+    );
+    console.log(result.map((record) => record.get('m').properties))
+    return result.map((record) => record.get('m').properties);
+  }
+
+  /* quantity: number = 0;
   constructor(@InjectModel('Movie') private movieModel: Model<Movie>) {
     this.movieModel.find().countDocuments().exec().then((quantity) => {
       this.quantity = quantity;
@@ -428,6 +568,6 @@ export class MoviesService {
       ]);
     }
     return result;
-  }
+  } */
 
 }
